@@ -8,6 +8,22 @@ import torch
 from PIL import Image
 from transformers import pipeline, AutoImageProcessor, ZoeDepthForDepthEstimation
 
+# Use ComfyUI model paths
+import folder_paths
+from pathlib import Path
+
+AUX_DIRS = folder_paths.get_folder_paths("preprocessors")
+
+try:
+    AUX_DIRS = folder_paths.get_folder_paths("preprocessors")
+except Exception:
+    AUX_DIRS = []
+
+if not AUX_DIRS:
+    AUX_DIRS = [Path(__file__).resolve().parents[3] / "ckpts"]
+
+BASE = Path(AUX_DIRS[0])
+
 # Local utility functions
 def HWC3(x):
     assert x.dtype == np.uint8
@@ -90,19 +106,27 @@ def common_input_validate(input_image, output_type, **kwargs):
 class ZoeDetector:
     """ZoeDepth depth estimation using HuggingFace transformers."""
     
-    def __init__(self, model_name="Intel/zoedepth-nyu-kitti"):
+    def __init__(self, model_name=None):
+        if model_name is None:
+            model_name = str(BASE / "Intel" / "zoedepth-nyu-kitti")
         """Initialize ZoeDepth with specified model."""
         try:
             image_processor = AutoImageProcessor.from_pretrained(model_name, local_files_only=True)
             model = ZoeDepthForDepthEstimation.from_pretrained(model_name, local_files_only=True)
             self.pipe = pipeline(task="depth-estimation", model=model, image_processor=image_processor)
         except Exception as e:
-            self.pipe = pipeline(task="depth-estimation", model=model_name)
+            raise RuntimeError(
+                f"Failed to load ZoeDepth locally from: {model_name}\n"
+                f"Remote fallback disabled.\n"
+                f"Original error: {e}"
+            )
         self.device = "cpu"
 
-    @classmethod  
-    def from_pretrained(cls, pretrained_model_or_path="Intel/zoedepth-nyu-kitti", filename=None, **kwargs):
-        """Create ZoeDetector from pretrained model."""
+    @classmethod
+    def from_pretrained(cls, pretrained_model_or_path=None, filename=None, **kwargs):
+        if pretrained_model_or_path is None:
+            pretrained_model_or_path = str(BASE / "Intel" / "zoedepth-nyu-kitti")
+
         return cls(model_name=pretrained_model_or_path)
     
     def to(self, device):

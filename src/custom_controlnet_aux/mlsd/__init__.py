@@ -10,17 +10,29 @@ from custom_controlnet_aux.util import HWC3, common_input_validate, resize_image
 from .models.mbv2_mlsd_large import MobileV2_MLSD_Large
 from .utils import pred_lines
 
+# Use ComfyUI folder
+import folder_paths
+from pathlib import Path
 
 class MLSDdetector:
     def __init__(self, model):
         self.model = model
 
     @classmethod
-    def from_pretrained(cls, pretrained_model_or_path=HF_MODEL_NAME, filename="mlsd_large_512_fp32.pth"):
-        subfolder = "annotator/ckpts" if pretrained_model_or_path == "lllyasviel/ControlNet" else ''
-        model_path = custom_hf_download(pretrained_model_or_path, filename, subfolder=subfolder)
+    def from_pretrained(cls, pretrained_model_or_path=None, filename="mlsd_large_512_fp32.pth"):
+
+        preprocessors_dirs = folder_paths.get_folder_paths("preprocessors")
+        base = Path(preprocessors_dirs[0])
+
+        model_path = base / "lllyasviel" / "Annotators" / filename
+
+        if not model_path.exists():
+            raise FileNotFoundError(
+                f"Missing MLSD model: {model_path}"
+            )
+
         model = MobileV2_MLSD_Large()
-        model.load_state_dict(torch.load(model_path), strict=True)
+        model.load_state_dict(torch.load(str(model_path), map_location="cpu"), strict=True)
         model.eval()
 
         return cls(model)

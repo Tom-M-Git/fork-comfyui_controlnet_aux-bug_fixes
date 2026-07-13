@@ -10,41 +10,60 @@ from typing import Union
 # Import utilities
 from ..util import HWC3, common_input_validate, resize_image_with_pad
 
+# Use ComfyUI model paths
+import folder_paths
+from pathlib import Path
+
+AUX_DIRS = folder_paths.get_folder_paths("preprocessors")
+
+try:
+    AUX_DIRS = folder_paths.get_folder_paths("preprocessors")
+except Exception:
+    AUX_DIRS = []
+
+if not AUX_DIRS:
+    AUX_DIRS = [Path(__file__).resolve().parents[3] / "ckpts"]
+
+BASE = Path(AUX_DIRS[0])
 
 class MidasDetector:
     
-    def __init__(self, model_name="Intel/dpt-large"):
+    def __init__(self, model_name=None):
         from transformers import DPTForDepthEstimation, DPTImageProcessor
-        
+        if model_name is None:
+            model_name = str(BASE / "Intel" / "dpt-large")
         self.model_name = model_name
         try:
             self.processor = DPTImageProcessor.from_pretrained(model_name, local_files_only=True)
             self.model = DPTForDepthEstimation.from_pretrained(model_name, local_files_only=True)
         except Exception as e:
-            self.processor = DPTImageProcessor.from_pretrained(model_name)
-            self.model = DPTForDepthEstimation.from_pretrained(model_name)
+            raise RuntimeError(
+                f"Failed to load DPT model locally from: {model_name}\n"
+                f"Remote fallback disabled.\n"
+                f"Original error: {e}"
+            )
         self.device = "cpu"
 
     @classmethod  
     def from_pretrained(cls, pretrained_model_or_path=None, model_type="dpt_hybrid", filename="dpt_hybrid-midas-501f0c75.pt"):
         # Map legacy model types to HuggingFace models
         model_mapping = {
-            "dpt_large": "Intel/dpt-large",
-            "dpt_hybrid": "Intel/dpt-hybrid-midas", 
-            "midas_v21": "Intel/dpt-large",
-            "midas_v21_small": "Intel/dpt-large"
+            "dpt_large": str(BASE / "Intel" / "dpt-large"),
+            "dpt_hybrid": str(BASE / "Intel" / "dpt-hybrid-midas"),
+            "midas_v21": str(BASE / "Intel" / "dpt-large"),
+            "midas_v21_small": str(BASE / "Intel" / "dpt-large"),
         }
         
         # Use filename for model selection if provided
         if filename and isinstance(filename, str):
             if "dpt_large" in filename.lower():
-                model_name = "Intel/dpt-large"
+                model_name = model_mapping["dpt_large"]
             elif "dpt_hybrid" in filename.lower():
-                model_name = "Intel/dpt-hybrid-midas"
+                model_name = model_mapping["dpt_hybrid"]
             else:
-                model_name = model_mapping.get(model_type, "Intel/dpt-large")
+                model_name = model_mapping.get(model_type, model_mapping["dpt_large"])
         else:
-            model_name = model_mapping.get(model_type, "Intel/dpt-large")
+            model_name = model_mapping.get(model_type, model_mapping["dpt_large"])
         
         return cls(model_name)
 

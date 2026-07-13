@@ -1,7 +1,12 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from timm.layers import trunc_normal_, DropPath
+
+# Backward compatible
+try:
+    from timm.layers import trunc_normal_, DropPath
+except ModuleNotFoundError:
+    from timm.models.layers import trunc_normal_, DropPath
 
 class Block(nn.Module):
     r""" ConvNeXt Block. There are two equivalent implementations:

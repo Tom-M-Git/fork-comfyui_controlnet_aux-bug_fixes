@@ -11,6 +11,12 @@ import threading
 import comfy
 import tempfile
 
+# Use ComfyUI folder
+try:
+    import folder_paths
+except Exception:
+    folder_paths = None
+
 here = Path(__file__).parent.resolve()
 
 config_path = Path(here, "config.yaml")
@@ -19,6 +25,30 @@ if os.path.exists(config_path):
     config = yaml.load(open(config_path, "r"), Loader=yaml.FullLoader)
 
     annotator_ckpts_path = str(Path(here, config["annotator_ckpts_path"]))
+
+# ACCEPT COMFY FOLDER
+    use_comfyui_model_paths = config.get("use_comfyui_model_paths", False)
+    comfyui_preprocessor_folder_name = config.get(
+        "comfyui_preprocessor_folder_name",
+        "preprocessors"
+    )
+
+    if use_comfyui_model_paths and folder_paths is not None:
+        try:
+            comfy_paths = folder_paths.get_folder_paths(comfyui_preprocessor_folder_name)
+            if comfy_paths:
+                annotator_ckpts_path = comfy_paths[0]
+        except Exception as e:
+            print(
+                f"[comfyui_controlnet_aux] Could not use ComfyUI model paths "
+                f"for '{comfyui_preprocessor_folder_name}', falling back to config path: {e}"
+            )
+
+
+
+# -----------------------------------------
+
+
     TEMP_DIR = config["custom_temp_path"]
     USE_SYMLINKS = config["USE_SYMLINKS"]
     ORT_PROVIDERS = config["EP_list"]
@@ -47,6 +77,7 @@ else:
     TEMP_DIR = tempfile.gettempdir()
     USE_SYMLINKS = False
     ORT_PROVIDERS = ["CUDAExecutionProvider", "DirectMLExecutionProvider", "OpenVINOExecutionProvider", "ROCMExecutionProvider", "CPUExecutionProvider", "CoreMLExecutionProvider"]
+
 
 os.environ['AUX_ANNOTATOR_CKPTS_PATH'] = os.getenv('AUX_ANNOTATOR_CKPTS_PATH', annotator_ckpts_path)
 os.environ['AUX_TEMP_DIR'] = os.getenv('AUX_TEMP_DIR', str(TEMP_DIR))
